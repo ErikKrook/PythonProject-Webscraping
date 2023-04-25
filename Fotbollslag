@@ -1,3 +1,7 @@
+"""
+I den här filen web scrapar jag fotbollslagtrupper på transfermarkt sida med hjälp av BeautifulSoup
+"""
+
 # Importera nödvändiga bibliotek
 import requests
 from bs4 import BeautifulSoup
