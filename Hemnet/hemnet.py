@@ -126,4 +126,4 @@ df['Datum'] = df['Datum'].str.extract(r'Såld (.*)')
 #print(df.head())
 
 # Skriver in dataaframen i en csv fil
-df.to_csv(r"C:\Users\erikk\OneDrive\Dokument\Kaggle\HemnetNotClean.csv", index=False, sep =';')
+df.to_csv(r"Lägg till eran egen sökväg", index=False, sep =';')
