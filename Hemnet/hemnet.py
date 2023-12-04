@@ -8,6 +8,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
+"""
 # De områderna som vi ska hämta data ifrån
 Stockholm = {'Ekerö': '17896', 'Hanninge': '17928', 'Huddinge': '17936',
              'Älvsjö': '925971&location_ids%5B%5D=925960', 'Hägersten': '925964',
@@ -19,19 +20,29 @@ Stockholm = {'Ekerö': '17896', 'Hanninge': '17928', 'Huddinge': '17936',
              'Täby': '17793', 'Sollentuna': '18027', 'Danderyd': '17892',
              'Solna': '18028'}
 
-for kommun, kod in Stockholm.items():
+"""
 
-    # De egenskaper som vi web scrapar fram
-    bostäder = {'Gata': [], 'Område': [], 'Kommun': [], 'Storlek': [],
-                'Slutpris': [], 'Datum': [], 'Månadskostnad': [], 'Hiss': [],
-                'Nyproduktion': [], 'Balkong': [], 'Uteplats': []}
+Stockholm = {'Solna': '18028', 'Sundbyberg': '18042'}
+
+# De egenskaper som vi web scrapar fram
+
+bostad = {'Gata': [], 'Område': [], 'Storlek': [], 'Slutpris': [], 
+          'Månadskostnad': [],'Datum': [], 'Hiss': [], 'Nyproduktion': [], 
+          'Balkong': [], 'Uteplats': []}
+
+# Ändra rum storlek 
+rum_min = 2
+rum_max = 4
+
+
+for kommun, kod in Stockholm.items():
 
     # Vi får tillgång till att söka igenom 50 sidor
     for page in range(50):
 
         # URL:en som vi skickar för att söka efter bostäder
-        url = f"https://www.hemnet.se/salda/bostader?housing_form_groups%5B%5D=apartments&location_ids%5B%5D={kod}&page={page}&rooms_max=3.5&rooms_min=3"
-
+        url = f"https://www.hemnet.se/salda/bostader?housing_form_groups%5B%5D=apartments&location_ids%5B%5D={kod}&page={page}&rooms_max={rum_max}&rooms_min={rum_min}"
+                
         # Vi använder User-Agent header för att undvika blockering från servern
         headers = {'User-Agent':
                    'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/47.0.2526.106 Safari/537.36'}
@@ -42,79 +53,77 @@ for kommun, kod in Stockholm.items():
 
         # Extraherar alla element som innehåller gatunamn från HTML-innehållet
         gata = searchSoup.find_all(
-            'h2', {'class': "sold-property-listing__heading qa-selling-price-title"})
+             'div', {'class': "Header_truncate__ebq7a"})
 
-        # Extraherar på liknade sätt
-        område = searchSoup.find_all('div', {'class': None})
+        # # Extraherar på liknade sätt
+        område = searchSoup.find_all('div', {'class': "Location_address___eOo4"})
 
         storlek = searchSoup.find_all(
-            'div', {'class': "sold-property-listing__size"})
+             'div', {'class': "hcl-flex--container hcl-flex--gap-2"})
 
         slutpris = searchSoup.find_all(
-            'div', {'class': "sold-property-listing__subheading"})
+             'span', {'class': "hcl-text hcl-text--medium"})
 
         månadskostnad = searchSoup.find_all(
-            'div', {'class': "sold-property-listing__fee"})
+             'span', {'class': "hcl-text"})
 
         datum = searchSoup.find_all(
-            'div', {'class': "sold-property-listing__sold-date"})
-
+            'span', {'class': "hcl-label hcl-label--state hcl-label--sold-at"})
+        
+        dummy = searchSoup.find_all(
+             'div', {'class': "Content_content__lg290"})
+                
+        
         # Varje sida innehåller 50 stycken bostäder som vi mattar in
         for i in range(len(gata)):
-            bostäder['Gata'].append(gata[i].text.replace('\n', '').strip())
-            info = område[i + 1].text.replace('\n', '')
-
-            Komma = info.find(',')
-            Mellanrum = info.find(' ')
-            bostäder['Område'].append(info[Mellanrum:Komma].strip())
-            bostäder['Kommun'].append(info[Komma + 1:].strip())
-            children = storlek[i].findChildren('div')
-            yta = children[0].text
-            M_två = yta.find('m')
-            bostäder['Storlek'].append(yta[:M_två].replace('\n', '').strip())
-            if len(children) == 2:
-                bostäder['Månadskostnad'].append(children[1].text.replace('\n', '')
-                                                 .replace('kr/mån', '').strip())
+            
+            bostad['Gata'].append(gata[i].text)
+            bostad['Område'].append(område[i].text)
+            bostad['Storlek'].append(storlek[i].text)
+            bostad['Slutpris'].append(slutpris[i*2].text)
+            bostad['Månadskostnad'].append(månadskostnad[i*3].text)
+            bostad['Datum'].append(datum[i].text)
+            info = dummy[i].text
+            if "Hiss" in info:
+                bostad['Hiss'].append(1)
             else:
-                bostäder['Månadskostnad'].append(None)
-
-            bostäder['Slutpris'].append(slutpris[i*2 + 1].text.replace('\n', '')
-                                        .replace('Slutpris', '').replace('kr', '').strip())
-            bostäder['Datum'].append(datum[i].text.replace(
-                '\n', '').replace('Såld', '').strip())
-            try:
-                dummy = storlek[i].next_sibling.next_sibling.text.replace(
-                    '\n', '').strip()
-            except AttributeError:
-                dummy = ''
-
-            # Lägger till våra dummy variabler
-            if 'Hiss' in dummy:
-                bostäder['Hiss'].append(1)
+                bostad['Hiss'].append(0)
+                
+            if "Nyproduktion" in info:
+                bostad['Nyproduktion'].append(1)
             else:
-                bostäder['Hiss'].append(0)
-
-            if 'Balkong' in dummy:
-                bostäder['Balkong'].append(1)
+                bostad['Nyproduktion'].append(0)
+                
+            if "Balkong" in info:
+                bostad['Balkong'].append(1)
             else:
-                bostäder['Balkong'].append(0)
-
-            if 'Uteplats' in dummy:
-                bostäder['Uteplats'].append(1)
+                bostad['Balkong'].append(0)
+                
+            if "Uteplats" in info:
+                bostad['Uteplats'].append(1)
             else:
-                bostäder['Uteplats'].append(0)
+                bostad['Uteplats'].append(0)
 
-            if 'Nyproduktion' in dummy:
-                bostäder['Nyproduktion'].append(1)
-            else:
-                bostäder['Nyproduktion'].append(0)
+# Gör om det till en pandas dataframe
+df = pd.DataFrame(bostad)
 
-        if len(gata) != 50:
-            break
+df[['Område', 'Kommun']] = df['Område'].str.split(',', n=1, expand=True)
+df['Rooms'] = df['Storlek'].str.extract(r'(\d+)\s*rum')
+df['Storlek'] = df['Storlek'].str.extract(r'([\d,]+)\s*m')
 
-    # Gör om det till en pandas dataframe
-    df = pd.DataFrame(bostäder)
+# Remove non-numeric characters from the 'Slutpris' column
+df['Slutpris'] = df['Slutpris'].str.replace(r'[^\d]', '', regex=True)
 
-    # Skriver in komunen i ett excelblad
-    with pd.ExcelWriter(r"C:\Users\erikk\OneDrive\Dokument\Kaggle\HemnetData.xlsx", engine='openpyxl', mode='a') as writer:
-        df.to_excel(writer, sheet_name=kommun)
+# Convert the column to numeric type
+df['Slutpris'] = pd.to_numeric(df['Slutpris'], errors='coerce')
+
+# Remove non-numeric characters from the 'Slutpris' column
+df['Månadskostnad'] = df['Månadskostnad'].str.replace(r'[^\d]', '', regex=True)
+df['Månadskostnad'] = pd.to_numeric(df['Månadskostnad'], errors='coerce')
+
+df['Datum'] = df['Datum'].str.extract(r'Såld (.*)')
+
+#print(df.head())
+
+# Skriver in dataaframen i en csv fil
+df.to_csv(r"C:\Users\erikk\OneDrive\Dokument\Kaggle\HemnetNotClean.csv", index=False, sep =';')
